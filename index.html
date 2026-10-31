@@ -5674,7 +5674,17 @@ t)).default()}catch(e){warn(`JpxImage#getJsModule: ${e}`)}e(n)}static async#N(e,
     const full = lines.filter((line) => !left.includes(line) && !right.includes(line));
 
     const rightSpan = right.length ? Math.max.apply(null, right.map((l) => l.y)) - Math.min.apply(null, right.map((l) => l.y)) : 0;
-    const twoColumn = left.length >= 12 && right.length >= 12 && rightSpan > pageHeight * 0.42;
+    const fullProse = full.filter((line) => line.text.length > 60 && (line.x1 - line.x0) > pageWidth * 0.5);
+    const leftTypical = left.length ? median(left.map((line) => line.text.length)) : 0;
+    const rightTypical = right.length ? median(right.map((line) => line.text.length)) : 0;
+    // A genuine two-column body has long lines in both columns and almost no
+    // full-width prose. Multi-column tables also produce left/right fragments,
+    // but they are short and sit among full-width paragraphs — do not mistake
+    // them for a two-column page, or table pages end up badly reordered.
+    const twoColumn = left.length >= 12 && right.length >= 12 &&
+      rightSpan > pageHeight * 0.42 &&
+      fullProse.length < 4 &&
+      leftTypical > 26 && rightTypical > 26;
 
     if (!twoColumn) {
       lines.forEach((line) => { line.column = 0; });
