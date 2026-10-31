@@ -1,0 +1,5 @@
+*.pdf
+*.png
+test-artifacts/
+.DS_Store
+Thumbs.db

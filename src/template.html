@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="description" content="文澜文献批注工作台：上传英文 PDF，逐句翻译、批注，并导出可独立保存的批注版 HTML。">
+<title>文澜 · 英文文献批注工作台</title>
+<style>
+/*__WENLAN_CSS__*/
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="boot-screen">
+    <div class="boot-seal">文</div>
+    <p>正在铺开纸页…</p>
+  </div>
+</div>
+<div id="overlays"></div>
+<div id="selectionMenu" class="selection-menu" hidden></div>
+<div id="toast-root" aria-live="polite"></div>
+
+<noscript>
+  <div class="noscript">此工作台需要启用 JavaScript 才能解析与批注文献。</div>
+</noscript>
+
+<script type="application/json" id="embedded-state">null</script>
+
+<!-- 离线 PDF 解析引擎，使整个工作台不依赖任何外部网络或 CDN -->
+<script type="text/plain" id="pdfjs-source">/*__PDFJS_SOURCE__*/</script>
+<script type="text/plain" id="pdfworker-source">/*__PDFWORKER_SOURCE__*/</script>
+
+<script>
+/*__DEMO_SOURCE__*/
+</script>
+<script>
+/*__APP_SOURCE__*/
+</script>
+</body>
+</html>
