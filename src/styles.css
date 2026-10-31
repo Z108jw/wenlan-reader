@@ -1200,6 +1200,11 @@ textarea:focus-visible,
   min-height: 32px;
   padding: 5px 11px;
   font-size: 11px;
+  white-space: nowrap;
+}
+
+.doc-tools .btn-label {
+  white-space: nowrap;
 }
 
 .doc-tools .btn-primary {
@@ -4056,6 +4061,16 @@ textarea:focus-visible,
 
   .home-hero {
     gap: 48px;
+  }
+}
+
+@media (max-width: 1420px) {
+  .doc-tools .reparse-btn .btn-label {
+    display: none;
+  }
+
+  .doc-tools .reparse-btn {
+    padding: 5px 9px;
   }
 }
 

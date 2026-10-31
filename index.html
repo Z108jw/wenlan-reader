@@ -1209,6 +1209,11 @@ textarea:focus-visible,
   min-height: 32px;
   padding: 5px 11px;
   font-size: 11px;
+  white-space: nowrap;
+}
+
+.doc-tools .btn-label {
+  white-space: nowrap;
 }
 
 .doc-tools .btn-primary {
@@ -4068,6 +4073,16 @@ textarea:focus-visible,
   }
 }
 
+@media (max-width: 1420px) {
+  .doc-tools .reparse-btn .btn-label {
+    display: none;
+  }
+
+  .doc-tools .reparse-btn {
+    padding: 5px 9px;
+  }
+}
+
 @media (max-width: 1120px) {
   .doc-crumbs .current {
     max-width: 200px;
@@ -4741,6 +4756,7 @@ t)).default()}catch(e){warn(`JpxImage#getJsModule: ${e}`)}e(n)}static async#N(e,
     spark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M12 2.8c.6 4.6 2.6 6.6 7.2 7.2-4.6.6-6.6 2.6-7.2 7.2-.6-4.6-2.6-6.6-7.2-7.2 4.6-.6 6.6-2.6 7.2-7.2Z"/><path d="M19 16.5c.2 1.6.9 2.3 2.5 2.5-1.6.2-2.3.9-2.5 2.5-.2-1.6-.9-2.3-2.5-2.5 1.6-.2 2.3-.9 2.5-2.5Z"/></svg>',
     quote: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M9.5 6.5c-3 1.2-4.5 3.5-4.5 6.8V19h6v-6H7.4c.2-2 1.1-3.3 3-4.3zM20 6.5c-3 1.2-4.5 3.5-4.5 6.8V19h6v-6h-3.6c.2-2 1.1-3.3 3-4.3z"/></svg>',
     layers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 12.5 9 5 9-5M3 17l9 5 9-5"/></svg>',
+    refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 11.5a8 8 0 1 1-2.4-5.7"/><path d="M20 4.5v7h-7"/></svg>',
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m4.5 12.5 5 5 10-11"/></svg>',
     menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
     folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3.5 7.5A2.5 2.5 0 0 1 6 5h4l2 2h6a2.5 2.5 0 0 1 2.5 2.5v7A2.5 2.5 0 0 1 18 19H6a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M3.5 9.5h17"/></svg>',
@@ -5296,10 +5312,11 @@ t)).default()}catch(e){warn(`JpxImage#getJsModule: ${e}`)}e(n)}static async#N(e,
     if (pageDbPromise) return pageDbPromise;
     pageDbPromise = new Promise((resolve) => {
       try {
-        const request = indexedDB.open(IDB_NAME, 1);
+        const request = indexedDB.open(IDB_NAME, 2);
         request.onupgradeneeded = () => {
           const db = request.result;
           if (!db.objectStoreNames.contains('pages')) db.createObjectStore('pages');
+          if (!db.objectStoreNames.contains('pdfs')) db.createObjectStore('pdfs');
         };
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => resolve(null);
@@ -5358,6 +5375,57 @@ t)).default()}catch(e){warn(`JpxImage#getJsModule: ${e}`)}e(n)}static async#N(e,
     try {
       const tx = db.transaction('pages', 'readwrite');
       tx.objectStore('pages').clear();
+    } catch (err) { /* noop */ }
+  }
+
+  async function saveCachedPdf(id, file) {
+    if (!id || !file) return false;
+    const db = await getPageDb();
+    if (!db) return false;
+    return new Promise((resolve) => {
+      try {
+        const tx = db.transaction('pdfs', 'readwrite');
+        tx.objectStore('pdfs').put(file, id);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+      } catch (err) {
+        resolve(false);
+      }
+    });
+  }
+
+  async function loadCachedPdf(id) {
+    if (!id) return null;
+    const db = await getPageDb();
+    if (!db) return null;
+    return new Promise((resolve) => {
+      try {
+        const tx = db.transaction('pdfs', 'readonly');
+        const req = tx.objectStore('pdfs').get(id);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      } catch (err) {
+        resolve(null);
+      }
+    });
+  }
+
+  async function deleteCachedPdf(id) {
+    if (!id) return;
+    const db = await getPageDb();
+    if (!db) return;
+    try {
+      const tx = db.transaction('pdfs', 'readwrite');
+      tx.objectStore('pdfs').delete(id);
+    } catch (err) { /* noop */ }
+  }
+
+  async function clearCachedPdfs() {
+    const db = await getPageDb();
+    if (!db) return;
+    try {
+      const tx = db.transaction('pdfs', 'readwrite');
+      tx.objectStore('pdfs').clear();
     } catch (err) { /* noop */ }
   }
 
@@ -5482,6 +5550,7 @@ t)).default()}catch(e){warn(`JpxImage#getJsModule: ${e}`)}e(n)}static async#N(e,
     writeRecentDocs(list);
     removeDocFromFolders(id);
     deleteCachedImages(id);
+    deleteCachedPdf(id);
     try { localStorage.removeItem(exportStorageKey(id)); } catch (err) { /* noop */ }
   }
 
@@ -7272,6 +7341,7 @@ t)).default()}catch(e){warn(`JpxImage#getJsModule: ${e}`)}e(n)}static async#N(e,
               '<button data-action="zoom-in" title="放大文献区域" aria-label="放大文献区域">+</button>' +
             '</div>' +
             '<div class="doc-tools">' +
+              (!state.embedded && !doc.isDemo ? '<button class="btn btn-sm reparse-btn" data-action="reparse-doc" title="重新解析当前 PDF，现有批注会保留">' + icon('refresh') + '<span class="btn-label">重新解析</span></button>' : '') +
               (doc.pageImages && doc.pageImages.length ? '<button class="btn btn-sm original-toggle ' + (state.showOriginal ? 'is-on' : '') + '" data-action="toggle-original" title="查看 PDF 原页中的图表与公式">' + icon('book') + '<span class="btn-label">' + (state.showOriginal ? '阅读版' : '原页') + '</span></button>' : '') +
               '<button class="btn btn-sm bilingual-toggle ' + (state.showBilingual ? 'is-on' : '') + '" data-action="toggle-bilingual" title="显示已生成的逐句译文">' + icon('translate') + '<span class="btn-label">双语对照</span></button>' +
               '<button class="btn btn-sm" data-action="open-translate-modal">' + icon('layers') + '<span class="btn-label">翻译文献</span></button>' +
@@ -8903,6 +8973,7 @@ t)).default()}catch(e){warn(`JpxImage#getJsModule: ${e}`)}e(n)}static async#N(e,
         updateProcess(Object.assign({ filename: shortText(file.name, 64) }, progress));
       });
       doc.displayName = cleanDocumentName(file.name) || doc.title;
+      await saveCachedPdf(doc.id, file);
       const existing = readRecentDocs().find((item) => normalizeForMatch(item.doc.title) === normalizeForMatch(doc.title));
       if (existing && normalizeForMatch(existing.doc.title) === normalizeForMatch(doc.title) && existing.annotations && existing.annotations.length) {
         const reuse = await confirmDialog({
@@ -8959,6 +9030,251 @@ t)).default()}catch(e){warn(`JpxImage#getJsModule: ${e}`)}e(n)}static async#N(e,
   }
 
   /* ---------------------------------------------------------
+     Re-parse an open document without losing annotations
+     --------------------------------------------------------- */
+
+  function buildReparseSidMap(oldSentences, newSentences) {
+    const buckets = new Map();
+    newSentences.forEach((sentence, index) => {
+      const key = normalizeSpace(sentence.text);
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push({ sentence, index });
+    });
+    const used = new Set();
+    const map = new Map();
+    oldSentences.forEach((old, oldIndex) => {
+      const candidates = buckets.get(normalizeSpace(old.text)) || [];
+      let best = null;
+      let bestScore = Infinity;
+      candidates.forEach((candidate) => {
+        if (used.has(candidate.sentence.sid)) return;
+        const pagePenalty = Math.abs((Number(old.page) || 1) - (Number(candidate.sentence.page) || 1)) * 100;
+        const sectionPenalty = normalizeForMatch(old.section) === normalizeForMatch(candidate.sentence.section) ? 0 : 8;
+        const orderPenalty = Math.abs(oldIndex - candidate.index) * 0.01;
+        const score = pagePenalty + sectionPenalty + orderPenalty;
+        if (score < bestScore) {
+          bestScore = score;
+          best = candidate;
+        }
+      });
+      if (best) {
+        used.add(best.sentence.sid);
+        map.set(old.sid, best.sentence);
+      }
+    });
+    return map;
+  }
+
+  function findQuoteRange(quote, sentences) {
+    const clean = normalizeSpace(quote || '');
+    if (!clean) return null;
+    const exact = sentences.find((sentence) => normalizeSpace(sentence.text) === clean);
+    if (exact) {
+      return { startSid: exact.sid, startOffset: 0, endSid: exact.sid, endOffset: exact.text.length };
+    }
+    let full = '';
+    const starts = [];
+    sentences.forEach((sentence) => {
+      if (full) full += ' ';
+      starts.push({ at: full.length, sentence });
+      full += sentence.text;
+    });
+    const index = full.indexOf(clean);
+    if (index < 0) return null;
+    const endIndex = index + clean.length;
+    let start = starts[0];
+    let end = starts[0];
+    starts.forEach((item) => {
+      if (item.at <= index) start = item;
+      if (item.at < endIndex) end = item;
+    });
+    if (!start || !end) return null;
+    return {
+      startSid: start.sentence.sid,
+      startOffset: clamp(index - start.at, 0, start.sentence.text.length),
+      endSid: end.sentence.sid,
+      endOffset: clamp(endIndex - end.at, 0, end.sentence.text.length)
+    };
+  }
+
+  function remapAnnotations(oldAnnotations, sidMap, newSentences) {
+    let unplaced = 0;
+    const output = [];
+    oldAnnotations.forEach((ann) => {
+      const oldRange = ann.range || { startSid: ann.sid, startOffset: 0, endSid: ann.sid, endOffset: 0 };
+      const startSentence = sidMap.get(oldRange.startSid);
+      const endSentence = sidMap.get(oldRange.endSid);
+      let startSid = null;
+      let endSid = null;
+      let startOffset = 0;
+      let endOffset = 0;
+      if (startSentence && endSentence) {
+        startSid = startSentence.sid;
+        endSid = endSentence.sid;
+        startOffset = clamp(Number(oldRange.startOffset) || 0, 0, startSentence.text.length);
+        endOffset = clamp(Number(oldRange.endOffset) || endSentence.text.length, 0, endSentence.text.length);
+      } else {
+        const anchor = findQuoteRange(ann.quote, newSentences);
+        if (anchor) {
+          startSid = anchor.startSid;
+          endSid = anchor.endSid;
+          startOffset = anchor.startOffset;
+          endOffset = anchor.endOffset;
+        }
+      }
+      if (!startSid || !endSid) {
+        unplaced += 1;
+        output.push(Object.assign({}, ann));
+        return;
+      }
+      output.push(Object.assign({}, ann, {
+        sid: startSid,
+        range: { startSid, startOffset, endSid, endOffset }
+      }));
+    });
+    return { annotations: output, unplaced };
+  }
+
+  async function confirmReparse() {
+    return confirmDialog({
+      title: '重新解析这篇文献？',
+      message: '会重新读取 PDF 的版式与段落，现有批注、译文和标签都会保留。请确保选择的是同一份 PDF。',
+      confirmLabel: '重新解析',
+      cancelLabel: '取消',
+      danger: false
+    });
+  }
+
+  function chooseReparseFile() {
+    let input = document.getElementById('reparseInput');
+    if (!input) {
+      input = document.createElement('input');
+      input.type = 'file';
+      input.id = 'reparseInput';
+      input.accept = 'application/pdf,.pdf';
+      input.className = 'visually-hidden';
+      document.body.appendChild(input);
+    }
+    input.value = '';
+    input.onchange = async () => {
+      const file = input.files && input.files[0];
+      input.value = '';
+      if (!file) return;
+      const ok = await confirmReparse();
+      if (ok) await reparseOpenDocument(file);
+    };
+    input.click();
+  }
+
+  async function requestReparse() {
+    if (!state.doc || state.embedded || state.pdfBusy) return;
+    const cached = await loadCachedPdf(state.doc.id);
+    if (cached) {
+      const ok = await confirmReparse();
+      if (!ok) return;
+      const name = state.doc.originalName || (state.doc.displayName ? state.doc.displayName + '.pdf' : 'document.pdf');
+      const file = cached instanceof File ? cached : new File([cached], name, { type: 'application/pdf' });
+      await reparseOpenDocument(file);
+      return;
+    }
+    toast('请选择原来的 PDF 文件；重新解析后批注会自动保留。', 'info', 4200);
+    chooseReparseFile();
+  }
+
+  async function reparseOpenDocument(file) {
+    if (!file || !state.doc || state.pdfBusy) return;
+    if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
+      toast('请选择 PDF 格式的文献。', 'error');
+      return;
+    }
+    if (file.size > 80 * 1024 * 1024) {
+      toast('文件超过 80 MB，重新解析可能会很慢。', 'error', 4000);
+      return;
+    }
+
+    const oldDoc = state.doc;
+    const oldSentences = runtime.sentences.map((sentence) => Object.assign({}, sentence));
+    const oldAnnotations = JSON.parse(JSON.stringify(state.annotations || []));
+    const oldTranslations = JSON.parse(JSON.stringify(state.translations || {}));
+    const oldTags = currentTags().slice();
+    const oldBilingual = state.showBilingual;
+    const oldPage = currentReadingPage();
+    const activeAnn = oldAnnotations.find((ann) => ann.id === state.activeAnnId) || null;
+    const returnId = activeAnn ? activeAnn.id : null;
+    const oldId = oldDoc.id;
+    const displayName = displayNameOf(oldDoc);
+    const originalName = oldDoc.originalName || file.name;
+    const createdAt = oldDoc.createdAt || Date.now();
+
+    state.pdfBusy = true;
+    showProcess();
+    updateProcess({ ratio: 0.01, label: '正在重新解析', detail: '批注会在解析完成后自动重新定位。', filename: shortText(file.name, 64) });
+    try {
+      const newDoc = await parsePdfFile(file, (progress) => {
+        updateProcess(Object.assign({ filename: shortText(file.name, 64) }, progress));
+      });
+      newDoc.id = oldId;
+      newDoc.displayName = displayName;
+      newDoc.originalName = originalName;
+      newDoc.createdAt = createdAt;
+
+      state.doc = newDoc;
+      state.annotations = [];
+      state.translations = {};
+      prepareDoc(newDoc, state.translations);
+
+      const sidMap = buildReparseSidMap(oldSentences, runtime.sentences);
+      const remapped = remapAnnotations(oldAnnotations, sidMap, runtime.sentences);
+      const translations = {};
+      Object.keys(oldTranslations).forEach((sid) => {
+        const sentence = sidMap.get(sid);
+        if (sentence) translations[sentence.sid] = oldTranslations[sid];
+      });
+
+      state.annotations = remapped.annotations;
+      state.translations = Object.assign({}, state.translations, translations);
+      state.tags = oldTags;
+      state.annotations.forEach((ann) => {
+        if (ann.tag && !state.tags.includes(ann.tag)) state.tags.push(ann.tag);
+      });
+      state.showBilingual = oldBilingual;
+      state.showOriginal = false;
+      state.editor = null;
+      state.activeAnnId = returnId && state.annotations.some((ann) => ann.id === returnId) ? returnId : null;
+      state.revision = (Number(state.revision) || 1) + 1;
+      state.updatedAt = Date.now();
+      state.scrollTop = 0;
+      runtime.pageCacheSavedFor = null;
+      runtime.pageCacheSavingFor = null;
+
+      saveCachedPdf(newDoc.id, file);
+      recalcAnnotationMaps();
+      closeModal();
+      render();
+      persistNow();
+
+      requestAnimationFrame(() => {
+        const active = state.activeAnnId ? state.annotations.find((ann) => ann.id === state.activeAnnId) : null;
+        if (active && active.range) {
+          const target = document.querySelector('.sentence[data-sid="' + cssEscape(active.range.startSid) + '"]');
+          if (target) target.scrollIntoView({ block: 'center' });
+          scrollCardIntoView(active.id, 'auto');
+        } else {
+          scrollToReadingPage(oldPage);
+        }
+      });
+
+      const lost = remapped.unplaced;
+      toast('重新解析完成，已保留 ' + state.annotations.length + ' 条批注。' + (lost ? ' 其中 ' + lost + ' 条暂未定位到新排版。' : ''), lost ? 'info' : 'success', 6000);
+    } catch (err) {
+      closeModal();
+      toast('重新解析失败：' + (err && err.message ? err.message : '请稍后重试。'), 'error', 6000);
+    } finally {
+      state.pdfBusy = false;
+    }
+  }
+
+  /* ---------------------------------------------------------
      Navigation & actions
      --------------------------------------------------------- */
 
@@ -8994,6 +9310,7 @@ t)).default()}catch(e){warn(`JpxImage#getJsModule: ${e}`)}e(n)}static async#N(e,
       try { localStorage.removeItem(LS_DOCS); } catch (err) { /* noop */ }
       try { localStorage.removeItem(LS_FOLDERS); } catch (err) { /* noop */ }
       clearCachedImages();
+      clearCachedPdfs();
       if (!state.embedded) {
         state.doc = null;
         state.annotations = [];
@@ -9080,6 +9397,9 @@ t)).default()}catch(e){warn(`JpxImage#getJsModule: ${e}`)}e(n)}static async#N(e,
         break;
       case 'download-html':
         downloadHTML();
+        break;
+      case 'reparse-doc':
+        requestReparse();
         break;
       case 'toggle-bilingual':
         state.showBilingual = !state.showBilingual;
